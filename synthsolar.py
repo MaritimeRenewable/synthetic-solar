@@ -35,6 +35,19 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import urllib.request
+from bs4 import BeautifulSoup
+
+
+def retrieve_monthly_clearness(lat, lon):
+    url = "https://eosweb.larc.nasa.gov/cgi-bin/sse/grid.cgi?&num=211121&lat="+ str(lat) + "&submit=Submit&hgt=100&veg=17&sitelev=&email=skip@larc.nasa.gov&p=grid_id&p=clr_kt&step=2&lon="+ str(lon)
+    with urllib.request.urlopen(url) as response:
+        html = response.read()
+        soup = BeautifulSoup(html, 'html.parser')
+        cells = [cell.text.strip() for cell in soup("td",{'align': 'center'},{'nowrap': ''})]
+        Kt = [float(k) for k in cells[-13:-1]]
+    return Kt
+
 
 def declination(n):
     """
@@ -402,3 +415,7 @@ def Aguiar_hourly_G0(Ktm, lat):
     G0 = G0c * np.array(kt)
     
     return G0
+
+
+if __name__ == '__main__':
+    G0 = Aguiar_hourly_G0(retrieve_monthly_clearness(20, 10), 20)
