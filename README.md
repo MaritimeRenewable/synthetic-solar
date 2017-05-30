@@ -1,14 +1,14 @@
 Synthetic Solar
 ===============
 
-Synthetic Solar is a Python module for generating synthetic sequences of hourly
+Synthetic Solar is a set of Python tools for generating synthetic sequences of hourly
 solar irradiances.
 
 Example
 -------
 
 ```python 
-import synth_solar
+import synthsolar
 import matplotlib.pyplot as plt
 
 Ktm = [0.49, 0.48, 0.50, 0.51, 0.51, 0.54, 0.54, 0.57, 0.56, 0.54, 0.51, 0.51]
