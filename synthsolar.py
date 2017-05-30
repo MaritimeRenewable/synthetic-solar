@@ -39,15 +39,6 @@ import urllib.request
 from bs4 import BeautifulSoup
 
 
-def retrieve_monthly_clearness(lat, lon):
-    url = "https://eosweb.larc.nasa.gov/cgi-bin/sse/grid.cgi?&num=211121&lat="+ str(lat) + "&submit=Submit&hgt=100&veg=17&sitelev=&email=skip@larc.nasa.gov&p=grid_id&p=clr_kt&step=2&lon="+ str(lon)
-    with urllib.request.urlopen(url) as response:
-        html = response.read()
-        soup = BeautifulSoup(html, 'html.parser')
-        cells = [cell.text.strip() for cell in soup("td",{'align': 'center'},{'nowrap': ''})]
-        Kt = [float(k) for k in cells[-13:-1]]
-    return Kt
-
 
 def declination(n):
     """
@@ -415,6 +406,106 @@ def Aguiar_hourly_G0(Ktm, lat):
     G0 = G0c * np.array(kt)
     
     return G0
+
+
+
+
+def Aguiar_hourly_Kt_list(Ktm, lat):
+    """
+    Generates an annual sequence of synthetic hourly irradiance values G0 (on a horizontal plane)
+    based on monthly mean clearness indices. The methods proposed by Aguiar et al for the generation
+    of synthetic daily and hourly irradiance values is used to create the sequence.
+
+    Inputs: Ktm is an array of monthly mean clearness indices
+            lat is the latitude of the location (in decimals)
+    """
+    days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+    # Generate daily clearness indices for each day in the year
+    Kt = []
+    Kt0 = Ktm[11]
+    for i in range(12):
+        Kti = Aguiar_daily_Kt(Ktm[i], Kt0, days[i])
+        Kt.extend(Kti)
+        Kt0 = Ktm[i]
+
+    # Generate hourly clearness indices for each hour in the year
+    kt = []
+    for d in range(365):
+        kti = Aguiar_hourly_kt(Kt[d], d, lat, 10)
+        kt.extend(kti)
+
+    return kt
+
+def Kt_single_day(Ktm, d):
+    """
+    Generates an annual sequence of synthetic hourly irradiance values G0 (on a horizontal plane)
+    based on monthly mean clearness indices. The methods proposed by Aguiar et al for the generation
+    of synthetic daily and hourly irradiance values is used to create the sequence.
+
+    Inputs: Ktm is an array of monthly mean clearness indices
+            lat is the latitude of the location (in decimals)
+    """
+    days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+    # Generate daily clearness indices for each day in the year
+    Kt = []
+    Kt0 = Ktm[11]
+    for i in range(12):
+        Kti = Aguiar_daily_Kt(Ktm[i], Kt0, days[i])
+        Kt.extend(Kti)
+        Kt0 = Ktm[i]
+
+    return Kt[d]
+
+
+def trend_single_day(lat, day):
+    """
+    Generates an annual sequence of clear sky (extraterrestrial) hourly irradiance values 
+    (on a horizontal plane) based on the annual trend for a given latitude. Estimation of the
+    daily irradiation and hourly irradiance on a horizontal plane is based on the method outlined 
+    in Chapter 20 of:
+
+    A. Luque, S. Hegedus, “Handbook of Photovoltaic Science and Engineering”, Wiley, 2003
+
+    Inputs: lat is the latitude of the location (in decimals)
+    """
+
+    n = np.arange(1, 366)
+    lat_rad = np.radians(lat)
+    epsilon = eccentricity(n)
+    delta = declination(n)
+    omega = sunrise(delta, lat_rad)
+
+    # Daily extraterrestrial irradiation (on a horizontal plane) Wh/m2/day
+    # (Refer to Section 20.4 of Luque and Hegedus)
+    B0d = 24 / np.pi * 1367 * epsilon * (
+    omega * np.sin(delta) * np.sin(lat_rad) - np.cos(delta) * np.cos(lat_rad) * np.sin(-omega))
+
+    # Set up hour angles
+    h = np.arange(1, 25)
+    h_start = (h - 13) * np.pi / 12  # Start of hour
+    h_end = (h - 12) * np.pi / 12  # End of hour
+    h_ang = (h - 12.5) * np.pi / 12  # Centre of hour
+
+    # Hourly clear sky irradiance (on a horizontal plane) W/m2
+    G0c = []
+    for d in range(1, 366):
+        omega_s = -omega[d - 1]  # Sunrise angle for the day
+        a = 0.409 - 0.5016 * np.sin(omega_s + 60 * np.pi / 180)
+        b = 0.6609 + 0.4767 * np.sin(omega_s + 60 * np.pi / 180)
+
+        # Hourly irradiance on a horizontal plane
+        # (Refer to Section 20.5.2 of Luque and Hegedus)
+        G0ci = np.pi / 24 * (np.cos(h_ang) - np.cos(omega_s)) / (omega_s * np.cos(omega_s) - np.sin(omega_s)) * (
+        a + b * np.cos(h_ang)) * B0d[d - 1]
+        h_sunrise = np.digitize([omega_s], h_start)[0]
+        h_sunset = np.digitize([-omega_s], h_end)[0]
+        G0ci[0:h_sunrise] = 0
+        G0ci[h_sunset:24] = 0
+        G0c.extend(G0ci)
+
+    return G0c[day * 24: (day + 1) * 24]
 
 
 if __name__ == '__main__':
