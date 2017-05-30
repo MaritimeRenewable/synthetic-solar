@@ -35,8 +35,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-import urllib.request
-from bs4 import BeautifulSoup
+from math import floor
+
+
+np.seterr(all='raise')
 
 
 def declination(n):
@@ -246,7 +248,11 @@ def Aguiar_daily_Kt(Ktm, Kt0, nd):
         if new_state == 1:
             k_interp = R / MTM_cum[new_state - 1]
         else:
-            k_interp = (R - MTM_cum[new_state - 2]) / (MTM_cum[new_state - 1] - MTM_cum[new_state - 2])
+            if MTM_cum[new_state - 1] != MTM_cum[new_state - 2]:
+                k_interp = (R - MTM_cum[new_state - 2]) \
+                           / (MTM_cum[new_state - 1] - MTM_cum[new_state - 2])
+            else:
+                k_interp = max_state
 
         Kti = k_interp * np.mean(np.cumsum(MTM[:, 0:new_state], axis=1)[:, new_state - 1])
         Kt.append(Kti)
@@ -405,7 +411,7 @@ def Aguiar_hourly_G0(Ktm, lat):
     # Generate hourly clearness indices for each hour in the year
     kt = []
     for d in range(365):
-        kti = Aguiar_hourly_kt(Kt[d], d, lat, 10)
+        kti = Aguiar_hourly_kt(Kt[d], d, lat, 20)
         kt.extend(kti)
 
     # Generate trend irradiances for each hour in the year
@@ -515,6 +521,29 @@ def trend_single_day(lat, day):
 
     return G0c[0:24]
 
+globalavgkt = np.load('globalavgkt.npy')
+
+def monthlyKt(lat, lon, data=globalavgkt):
+    '''
+
+    :param lat: degrees
+                latitude
+    :param lon: degrees
+                longitude
+    :return: numpy array
+            10 year monthly Kt at given lat, lon
+    '''
+    latindex = -floor(lat) + 90 - 1
+    lonindex = floor(lon) + 180
+    if latindex == 180:
+        latindex = 0
+    if lonindex == 360:
+        lonindex = 0
+
+    rawdata = data[latindex, lonindex, :]
+    rawdata[rawdata == -999] = 'nan'
+
+    return data[latindex, lonindex, :]
 
 if __name__ == '__main__':
     G0 = Aguiar_hourly_G0(retrieve_monthly_clearness(20, 10), 20)
