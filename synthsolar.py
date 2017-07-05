@@ -38,7 +38,7 @@ import numpy as np
 from math import floor
 
 
-np.seterr(all='raise')
+# np.seterr(all='raise')
 
 
 def declination(n):
@@ -420,7 +420,7 @@ def Aguiar_hourly_G0(Ktm, lat):
     # Calculate synthetic irradiance for each hour of the year
     G0 = G0c * np.array(kt)
 
-    return G0
+    return G0, G0c, np.array(kt)
 
 
 def Aguiar_hourly_Kt_list(Ktm, lat):
@@ -521,11 +521,11 @@ def trend_single_day(lat, day):
 
     return G0c[0:24]
 
-globalavgkt = np.load('globalavgkt.npy')
+
+globalavgkt = np.load('synthetic_solar/globalavgkt.npy')
 
 def monthlyKt(lat, lon, data=globalavgkt):
     '''
-
     :param lat: degrees
                 latitude
     :param lon: degrees
@@ -545,5 +545,3 @@ def monthlyKt(lat, lon, data=globalavgkt):
 
     return data[latindex, lonindex, :]
 
-if __name__ == '__main__':
-    G0 = Aguiar_hourly_G0(retrieve_monthly_clearness(20, 10), 20)
